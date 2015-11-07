@@ -1,0 +1,157 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <!--Specify build numberings-->
+    <BuildVersion Condition=" '$(BuildVersion)' == '' " >0.0.1</BuildVersion>
+    <BuildLastMajorVersion>0.0.0</BuildLastMajorVersion>
+    <NightlyDate>$([System.DateTime]::Now.ToString(yyyyMMddmmss))</NightlyDate>
+    <!--Nuget Versioning-->
+    <NuGetVersion>$(BuildVersion)</NuGetVersion>
+    <NuGetVersion Condition="'$(IsNightlyBuild)'=='true'">$(BuildVersion)-nightly$(NightlyDate)</NuGetVersion>
+    <NuGetVersion Condition="'$(CustomBuildName)' != ''">$(BuildVersion)-custom-$(CustomBuildName)</NuGetVersion>
+    <NuGetProperties>BuildVersion=$(NuGetVersion)</NuGetProperties>
+  </PropertyGroup>
+
+  <!--Define paths for outputs, tooling, and source-->
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)'==''">Release</Configuration>
+    <BaseOutputDirectory>$(MSBuildProjectDirectory)\build\</BaseOutputDirectory>
+    <ProjectTarget Condition="'$(ProjectTarget)'==''">Build</ProjectTarget>
+    <NuGetOutputPath>$(BaseOutputDirectory)bin\$(Configuration)\NuGetPackages</NuGetOutputPath>
+    <NuGetTool>$(BaseOutputDirectory)..\tools\nuget\NuGet.exe</NuGetTool>
+    <BuildInfoFile>$(BaseOutputDirectory)\bin\BuildInfo.cs</BuildInfoFile>
+    <NuGetBuildPath>$(BaseOutputDirectory)\obj\$(Configuration)\NuGet</NuGetBuildPath>
+    <BuildNetFX45>true</BuildNetFX45>
+  </PropertyGroup>
+
+  <!--Additional Variables -->
+  <PropertyGroup>
+    <IgnoreBuildFailures>false</IgnoreBuildFailures>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <TargetFramework Include=".NET Framework 4.5" Condition="'$(BuildNetFX45)'=='true'">
+      <ProjectFileSuffix>.netfx45</ProjectFileSuffix>
+      <ToolsVersion>4.0</ToolsVersion>
+      <NuGetDir>net45</NuGetDir>
+    </TargetFramework>
+  </ItemGroup>
+
+  <!--Target for nightly builds. This should be published to a prerelease channel-->
+  <Target Name="NightlyBuild">
+    <PropertyGroup>
+      <CommonProperties>BuildLabel=$(BuildLabel);BuildVersion=$(BuildVersion);IsNightlyBuild=true</CommonProperties>
+    </PropertyGroup>
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DeepClean;Clean;Build;NuGetPackage;" Properties="Configuration=Release;$(CommonProperties)" />
+  </Target>
+
+  <!--Target for releases. This should be published to the main channel.-->
+  <Target Name="Release">
+    <PropertyGroup>
+      <CommonProperties>BuildLabel=$(BuildLabel);BuildVersion=$(BuildVersion)</CommonProperties>
+    </PropertyGroup>
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DeepClean;Clean;Build;NuGetPackage;" Properties="Configuration=Release;$(CommonProperties)" />
+  </Target>
+
+  <Target Name="Build">
+    <PropertyGroup>
+      <BuildInfoFileContent>
+        // automatically generated
+        [assembly: System.Reflection.AssemblyProduct("$(BuildProductName)")]
+        [assembly: System.Reflection.AssemblyVersion("$(BuildLastMajorVersion)")]
+        [assembly: System.Reflection.AssemblyFileVersion("$(BuildVersion)")]
+        [assembly: System.Reflection.AssemblyInformationalVersion("$(NuGetVersion)")]
+      </BuildInfoFileContent>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(BaseOutputDirectory)\bin" />
+
+    <ReadLinesFromFile File="$(BuildInfoFile)" Condition="Exists('$(BuildInfoFile)')">
+      <Output TaskParameter="Lines" ItemName="CurrentBuildInfoFileContent" />
+    </ReadLinesFromFile>
+
+    <WriteLinesToFile File="$(BuildInfoFile)"
+            Lines='$(BuildInfoFileContent)'
+            Overwrite="true"
+            Condition="'$(BuildInfoFileContent)' != '@(CurrentBuildInfoFileContent)' " />
+    <MSBuild Projects="Hangfire.MySql.csproj"
+             Targets="Build"
+             Properties="BaseOutputDirectory=$(BaseOutputDirectory);BuildInfoFile=$(BuildInfoFile)"
+             ContinueOnError="$(IgnoreBuildFailures)"
+             StopOnFirstFailure="false" />
+  </Target>
+
+  <Target Name="NuGetPackage">
+    <ItemGroup>
+      <NuGetFiles Include="Hangfire.MySql.nuspec" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <NuGetSourceFiles Include="src/**/*.cs" />
+    </ItemGroup>
+
+    <!-- prepare static files -->
+    <RemoveDir Directories="$(NuGetBuildPath)\Hangfire.MySql" />
+    <Copy SourceFiles="@(NuGetFiles)" DestinationFolder="$(NuGetBuildPath)\Hangfire.MySql\%(RecursiveDir)" />
+
+    <!-- copy binaries -->
+    <MakeDir Directories="$(NuGetBuildPath)\Hangfire.MySql\lib\%(TargetFramework.NuGetDir)" />
+    <Copy DestinationFolder="$(NuGetBuildPath)\Hangfire.MySql\lib\%(TargetFramework.NuGetDir)" SourceFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\Hangfire.MySql.dll" />
+    <Copy DestinationFolder="$(NuGetBuildPath)\Hangfire.MySql\lib\%(TargetFramework.NuGetDir)" SourceFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\Hangfire.MySql.pdb" />
+    <Copy DestinationFolder="$(NuGetBuildPath)\Hangfire.MySql\lib\%(TargetFramework.NuGetDir)" SourceFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\Hangfire.MySql.xml" />
+
+    <!-- copy sources -->
+    <Copy SourceFiles="@(NuGetSourceFiles)" DestinationFolder="$(NuGetBuildPath)\Hangfire.MySql\src\src\Hangfire.MySql\%(RecursiveDir)" />
+    <Copy SourceFiles="$(BuildInfoFile)" DestinationFolder="$(NuGetBuildPath)\Hangfire.MySql\src\build\bin" />
+
+    <TokenReplace Path="$(NuGetBuildPath)\Hangfire.MySql\Hangfire.MySql.nuspec" Token="$BuildVersion$" Replacement="$(NuGetVersion)" />
+
+    <!-- package -->
+    <RemoveDir Directories="$(NuGetOutputPath)" />
+    <MakeDir Directories="$(NuGetOutputPath)" />
+    <Exec Command='"$(NuGetTool)" pack Hangfire.MySql.nuspec -Symbols -OutputDirectory "$(NuGetOutputPath)"' WorkingDirectory="$(NuGetBuildPath)/Hangfire.MySql" />
+  </Target>
+
+  <ItemGroup>
+    <FilesToCleanup Include="**\*.suo" />
+    <FilesToCleanup Include="**\*.ncb" />
+    <FilesToCleanup Include="**\*.user" />
+    <FilesToCleanup Include="**\*.cache" />
+    <DirectoriesToCleanup Include="_ReSharper.*" />
+    <DirectoriesToCleanup Include="build\bin" />
+    <DirectoriesToCleanup Include="build\obj" />
+    <ProjectsToCleanup Include="Hangfire.MySql" />
+    <SolutionFiles Include="..\**\*.sln" />
+  </ItemGroup>
+
+  <Target Name="DeepClean">
+    <Delete Files="@(FilesToCleanup)" />
+    <RemoveDir Directories="@(DirectoriesToCleanup)" />
+    <RemoveDir Directories="@(ProjectsToCleanup -> '%(Identity)\bin')" />
+    <RemoveDir Directories="@(ProjectsToCleanup -> '%(Identity)\obj')" />
+    <RemoveDir Directories="@(SolutionFiles -> '%(RelativeDir)_ReSharper.%(filename)')" />
+  </Target>
+
+  <Target Name="Clean">
+    <RemoveDir Directories="@(TargetFramework -> '$(BaseOutputDirectory)bin\$(Configuration)\%(Identity)')" />
+    <RemoveDir Directories="@(TargetFramework -> '$(BaseOutputDirectory)obj\$(Configuration)\%(Identity)')" />
+  </Target>
+
+  <UsingTask TaskName="TokenReplace" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+    <ParameterGroup>
+      <Path ParameterType="System.String" Required="true" />
+      <Token ParameterType="System.String" Required="true" />
+      <Replacement ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+string content = File.ReadAllText(Path);
+content = content.Replace(Token, Replacement);
+File.WriteAllText(Path, content);
+
+]]>
+      </Code>
+    </Task>
+  </UsingTask>
+</Project>
