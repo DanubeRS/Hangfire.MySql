@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <metadata xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <id>Hangfire.MySql</id>
+    <title>Hangfire - MySql Connector</title>
+    <version>$BuildVersion$</version>
+    <authors>Christopher Love, Daniel Park</authors>
+    <owners>Christopher Love</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <summary>MySql Connector for Hangfire</summary>
+    <description>
+    MySql connector for Hangfire
+    </description>
+    <language>en-US</language>
+    <projectUrl>http://http://hangfire.io/</projectUrl>
+    <licenseUrl>https://raw.githubusercontent.com/chrislove/Hangfire.MySql/master/LICENSE.txt</licenseUrl>
+    <tags>hangfire</tags>
+  </metadata>
+</package>
