@@ -108,7 +108,7 @@
     <!-- package -->
     <RemoveDir Directories="$(NuGetOutputPath)" />
     <MakeDir Directories="$(NuGetOutputPath)" />
-    <Exec Command='"$(NuGetTool)" pack Hangfire.MySql.nuspec -Symbols -Verbosity detailed -OutputDirectory "$(NuGetOutputPath)"' WorkingDirectory="$(NuGetBuildPath)/Hangfire.MySql" />
+    <Exec Command='"$(NuGetTool)" pack Hangfire.MySql.nuspec -Symbols -OutputDirectory "$(NuGetOutputPath)"' WorkingDirectory="$(NuGetBuildPath)/Hangfire.MySql" />
   </Target>
 
   <ItemGroup>
