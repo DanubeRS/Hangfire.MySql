@@ -5,6 +5,7 @@ branches:
 build_script:
 - cmd: >-
     nuget restore
+
     MSBuild .\build.proj /t:NightlyBuild /p:BuildLastMajorVersion=0.0.0 /p:BuildVersion=0.0.1 /p:NuGetPrerelease=true
 artifacts:
 - path: build\bin\Release\NuGetPackages
